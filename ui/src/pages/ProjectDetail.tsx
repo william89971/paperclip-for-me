@@ -251,6 +251,15 @@ export function ProjectDetail() {
     },
   });
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteProject = useMutation({
+    mutationFn: () => projectsApi.remove(projectLookupRef, resolvedCompanyId ?? lookupCompanyId),
+    onSuccess: () => {
+      if (resolvedCompanyId) queryClient.invalidateQueries({ queryKey: queryKeys.projects.list(resolvedCompanyId) });
+      navigate("/projects");
+    },
+  });
+
   useEffect(() => {
     setBreadcrumbs([
       { label: "Projects", href: "/projects" },
@@ -393,13 +402,49 @@ export function ProjectDetail() {
       )}
 
       {activeTab === "configuration" && (
-        <div className="max-w-4xl">
+        <div className="max-w-4xl space-y-8">
           <ProjectProperties
             project={project}
             onUpdate={(data) => updateProject.mutate(data)}
             onFieldUpdate={updateProjectField}
             getFieldSaveState={(field) => fieldSaveStates[field] ?? "idle"}
           />
+
+          <div className="rounded-md border border-destructive/30 p-4 space-y-3">
+            <h3 className="text-sm font-medium text-destructive">Danger zone</h3>
+            <p className="text-xs text-muted-foreground">
+              Permanently delete this project and all its configuration. Issues linked to this project will not be deleted.
+            </p>
+            {!confirmDelete ? (
+              <button
+                className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20 transition-colors"
+                onClick={() => setConfirmDelete(true)}
+              >
+                Delete project
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  disabled={deleteProject.isPending}
+                  onClick={() => deleteProject.mutate()}
+                >
+                  {deleteProject.isPending ? "Deleting..." : "Yes, delete permanently"}
+                </button>
+                <button
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+            {deleteProject.isError && (
+              <p className="text-xs text-destructive">
+                {deleteProject.error instanceof Error ? deleteProject.error.message : "Failed to delete project"}
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
