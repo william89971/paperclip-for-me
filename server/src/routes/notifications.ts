@@ -8,6 +8,7 @@ import {
 } from "@paperclipai/shared";
 import { validate } from "../middleware/validate.js";
 import { notificationService, logActivity } from "../services/index.js";
+import { validateOutboundUrl } from "../services/notifications.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function notificationRoutes(db: Db) {
@@ -29,6 +30,18 @@ export function notificationRoutes(db: Db) {
     async (req, res) => {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
+
+      // Validate webhook URLs at creation time to prevent SSRF
+      const config = req.body.config as Record<string, unknown> | undefined;
+      const webhookUrl = config?.url ?? config?.webhookUrl;
+      if (typeof webhookUrl === "string") {
+        try {
+          validateOutboundUrl(webhookUrl);
+        } catch (err) {
+          res.status(422).json({ error: err instanceof Error ? err.message : "Invalid webhook URL" });
+          return;
+        }
+      }
 
       const channel = await svc.createChannel(companyId, {
         type: req.body.type,

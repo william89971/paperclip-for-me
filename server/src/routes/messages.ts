@@ -32,6 +32,12 @@ export function messageRoutes(db: Db) {
       res.status(422).json({ error: "fromAgentId not found in this company" });
       return;
     }
+    // Verify toAgentId belongs to this company
+    const toAgent = await agentSvc.getById(req.body.toAgentId);
+    if (!toAgent || toAgent.companyId !== companyId) {
+      res.status(422).json({ error: "toAgentId not found in this company" });
+      return;
+    }
 
     const msg = await svc.send(companyId, req.body);
     const actor = getActorInfo(req);

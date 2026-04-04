@@ -14,7 +14,7 @@ function matchesEventPattern(pattern: string, eventType: string): boolean {
   return false;
 }
 
-function validateOutboundUrl(url: string): void {
+export function validateOutboundUrl(url: string): void {
   const parsed = new URL(url);
   const hostname = parsed.hostname.toLowerCase();
   const blocked = [
@@ -27,6 +27,13 @@ function validateOutboundUrl(url: string): void {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
     throw new Error("Blocked: unsupported protocol");
+  }
+  // IPv6 private/reserved ranges
+  if (hostname.startsWith("[") || hostname.includes(":")) {
+    const bare = hostname.replace(/^\[|\]$/g, "");
+    if (bare.startsWith("fe80") || bare.startsWith("fc") || bare.startsWith("fd")) {
+      throw new Error("Blocked: private IPv6");
+    }
   }
   const parts = hostname.split(".").map(Number);
   if (parts.length === 4 && parts.every((n) => !isNaN(n))) {

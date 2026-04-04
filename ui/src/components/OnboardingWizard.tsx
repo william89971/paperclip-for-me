@@ -199,14 +199,15 @@ export function OnboardingWizard() {
   }, [adapterType, cwd, model, command, args, url]);
 
   // Auto-run environment test when arriving at step 2 with a company created
+  // Depends on adapterEnvResult so it re-runs after config-change resets clear the result
   useEffect(() => {
     if (step !== 2 || !createdCompanyId || adapterEnvResult || adapterEnvLoading) return;
-    // Small delay so the UI renders first
+    let cancelled = false;
     const timer = setTimeout(() => {
-      runAdapterEnvironmentTest();
+      if (!cancelled) runAdapterEnvironmentTest();
     }, 500);
-    return () => clearTimeout(timer);
-  }, [step, createdCompanyId]);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [step, createdCompanyId, adapterEnvResult]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
   const hasAnthropicApiKeyOverrideCheck =

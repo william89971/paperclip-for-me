@@ -34,6 +34,7 @@ export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const [bannerDismissed, setBannerDismissed] = useState(() => !!localStorage.getItem("paperclip:dismiss-getting-started"));
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
   const seenActivityIdsRef = useRef<Set<string>>(new Set());
   const hydratedActivityRef = useRef(false);
@@ -205,7 +206,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {!hasNoAgents && data && data.tasks.done < 3 && !localStorage.getItem("paperclip:dismiss-getting-started") && (
+      {!hasNoAgents && data && data.tasks.done < 3 && !bannerDismissed && (
         <div className="flex items-start justify-between gap-3 rounded-md border border-blue-300 bg-blue-50 px-4 py-3 dark:border-blue-500/25 dark:bg-blue-950/60">
           <div className="flex items-start gap-2.5">
             <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
@@ -220,8 +221,7 @@ export function Dashboard() {
           <button
             onClick={() => {
               localStorage.setItem("paperclip:dismiss-getting-started", "1");
-              // Force re-render by using a state update via window event
-              window.dispatchEvent(new Event("storage"));
+              setBannerDismissed(true);
             }}
             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 shrink-0"
           >

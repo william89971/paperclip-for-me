@@ -67,7 +67,11 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
 
 export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
-  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET ?? "paperclip-dev-secret";
+  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET;
+  if (!secret && config.deploymentMode === "authenticated") {
+    throw new Error("BETTER_AUTH_SECRET or PAPERCLIP_AGENT_JWT_SECRET must be set in authenticated mode");
+  }
+  const effectiveSecret = secret ?? "paperclip-local-dev-only";
   const effectiveTrustedOrigins = trustedOrigins ?? deriveAuthTrustedOrigins(config);
 
   const publicUrl = process.env.PAPERCLIP_PUBLIC_URL ?? baseUrl;
@@ -75,7 +79,7 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
 
   const authConfig = {
     baseURL: baseUrl,
-    secret,
+    secret: effectiveSecret,
     trustedOrigins: effectiveTrustedOrigins,
     database: drizzleAdapter(db, {
       provider: "pg",
