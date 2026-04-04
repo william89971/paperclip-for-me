@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/r
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentsApi, type AgentKey, type ClaudeLoginResult } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
-import { ApiError } from "../api/client";
+import { ApiError, wsBaseUrl } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
 import { issuesApi } from "../api/issues";
@@ -1925,8 +1925,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(run.companyId)}/events/ws`;
+      const url = `${wsBaseUrl()}/api/companies/${encodeURIComponent(run.companyId)}/events/ws`;
       socket = new WebSocket(url);
 
       socket.onopen = () => {

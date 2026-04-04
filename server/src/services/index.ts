@@ -8,6 +8,7 @@ export { goalService } from "./goals.js";
 export { activityService, type ActivityFilters } from "./activity.js";
 export { approvalService } from "./approvals.js";
 export { secretService } from "./secrets.js";
+export { scheduleService } from "./schedules.js";
 export { costService } from "./costs.js";
 export { heartbeatService } from "./heartbeat.js";
 export { dashboardService } from "./dashboard.js";
@@ -19,3 +20,9 @@ export { notifyHireApproved, type NotifyHireApprovedInput } from "./hire-hook.js
 export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 export { reconcilePersistedRuntimeServicesOnStartup } from "./workspace-runtime.js";
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
+export { messageService } from "./messages.js";
+export { webhookService } from "./webhooks.js";
+export { performanceService } from "./performance.js";
+export { briefingService } from "./briefings.js";
+export { knowledgeService } from "./knowledge.js";
+export { notificationService } from "./notifications.js";

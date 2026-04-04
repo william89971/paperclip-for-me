@@ -312,4 +312,24 @@ export function registerAgentCommands(program: Command): void {
       }),
     { includeCompany: false },
   );
+
+  addCommonClientOptions(
+    agent
+      .command("performance")
+      .description("Show agent performance metrics")
+      .argument("<agentId>", "Agent ID")
+      .option("--range <range>", "Time range (e.g. 7d, 30d, 90d)", "30d")
+      .action(async (agentId: string, opts: BaseClientOptions & { range?: string }) => {
+        try {
+          const ctx = resolveCommandContext(opts);
+          const range = opts.range ?? "30d";
+          const row = await ctx.api.get(
+            `/api/agents/${agentId}/performance?range=${encodeURIComponent(range)}`,
+          );
+          printOutput(row, { json: ctx.json });
+        } catch (err) {
+          handleCommandError(err);
+        }
+      }),
+  );
 }

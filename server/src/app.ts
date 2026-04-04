@@ -24,6 +24,13 @@ import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
+import { scheduleRoutes } from "./routes/schedules.js";
+import { messageRoutes } from "./routes/messages.js";
+import { webhookPublicRoutes, webhookManagementRoutes } from "./routes/webhooks.js";
+import { performanceRoutes } from "./routes/performance.js";
+import { briefingRoutes } from "./routes/briefings.js";
+import { knowledgeRoutes } from "./routes/knowledge.js";
+import { notificationRoutes } from "./routes/notifications.js";
 import { applyUiBranding } from "./ui-branding.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
@@ -48,6 +55,23 @@ export async function createApp(
   const app = express();
 
   app.use(express.json());
+
+  // Optional CORS for split-origin deployments (e.g., Vercel UI + Railway API)
+  const allowedOrigins = process.env.PAPERCLIP_ALLOWED_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  if (allowedOrigins.length > 0) {
+    app.use((req, res, next) => {
+      const origin = req.headers.origin;
+      if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+        if (req.method === "OPTIONS") { res.status(204).end(); return; }
+      }
+      next();
+    });
+  }
+
   app.use(httpLogger);
   const privateHostnameGateEnabled =
     opts.deploymentMode === "authenticated" && opts.deploymentExposure === "private";
@@ -90,6 +114,9 @@ export async function createApp(
   }
   app.use(llmRoutes(db));
 
+  // Mount public webhook ingestion (no auth — HMAC validated)
+  app.use("/api/webhooks", webhookPublicRoutes(db));
+
   // Mount API routes
   const api = Router();
   api.use(boardMutationGuard());
@@ -114,6 +141,13 @@ export async function createApp(
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
   api.use(sidebarBadgeRoutes(db));
+  api.use(scheduleRoutes(db));
+  api.use(messageRoutes(db));
+  api.use(webhookManagementRoutes(db));
+  api.use(performanceRoutes(db));
+  api.use(briefingRoutes(db));
+  api.use(knowledgeRoutes(db));
+  api.use(notificationRoutes(db));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

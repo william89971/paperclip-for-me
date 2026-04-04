@@ -79,3 +79,10 @@ export type {
   CompanyPortabilityImportResult,
   CompanyPortabilityExportRequest,
 } from "./company-portability.js";
+export type { AgentSchedule } from "./schedule.js";
+export type { AgentMessage } from "./message.js";
+export type { WebhookEndpoint, WebhookEvent } from "./webhook.js";
+export type { AgentPerformance } from "./performance.js";
+export type { CompanyBriefing } from "./briefing.js";
+export type { KnowledgeEntry } from "./knowledge.js";
+export type { NotificationChannel, NotificationRule } from "./notification.js";

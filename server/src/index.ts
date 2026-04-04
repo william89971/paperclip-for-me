@@ -511,8 +511,18 @@ export async function startServer(): Promise<StartedServer> {
       logger.error({ err }, "startup reconciliation of persisted runtime services failed");
     });
   
+  // Register outbound notification dispatcher
+  {
+    const { registerNotificationDispatcher } = await import("./services/live-events.js");
+    const { notificationService } = await import("./services/notifications.js");
+    const notifications = notificationService(db as any);
+    registerNotificationDispatcher((event) => notifications.dispatchForEvent(event));
+  }
+
   if (config.heartbeatSchedulerEnabled) {
     const heartbeat = heartbeatService(db as any);
+    const { scheduleService } = await import("./services/schedules.js");
+    const schedules = scheduleService(db as any);
   
     // Reap orphaned running runs at startup while in-memory execution state is empty,
     // then resume any persisted queued runs that were waiting on the previous process.
@@ -542,6 +552,16 @@ export async function startServer(): Promise<StartedServer> {
         .catch((err) => {
           logger.error({ err }, "periodic heartbeat recovery failed");
         });
+
+      // Evaluate cron schedules and enqueue wakeups for due agents
+      void schedules.getDueSchedules(new Date()).then(async (due) => {
+        for (const s of due) {
+          await heartbeat.invoke(s.agentId, "automation", { scheduleId: s.id, cronExpression: s.cronExpression }, "system");
+          await schedules.markRun(s.id, new Date());
+        }
+      }).catch((err) => {
+        logger.error({ err }, "schedule tick failed");
+      });
     }, config.heartbeatSchedulerIntervalMs);
   }
   

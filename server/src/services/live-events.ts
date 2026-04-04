@@ -7,6 +7,13 @@ type LiveEventListener = (event: LiveEvent) => void;
 const emitter = new EventEmitter();
 emitter.setMaxListeners(0);
 
+type NotificationDispatcher = (event: LiveEvent) => Promise<void>;
+let notificationDispatcher: NotificationDispatcher | null = null;
+
+export function registerNotificationDispatcher(fn: NotificationDispatcher) {
+  notificationDispatcher = fn;
+}
+
 let nextEventId = 0;
 
 function toLiveEvent(input: {
@@ -31,6 +38,11 @@ export function publishLiveEvent(input: {
 }) {
   const event = toLiveEvent(input);
   emitter.emit(input.companyId, event);
+
+  if (notificationDispatcher) {
+    void notificationDispatcher(event).catch(() => {});
+  }
+
   return event;
 }
 

@@ -1,0 +1,8 @@
+{
+  "buildCommand": "pnpm --filter @paperclipai/ui build",
+  "outputDirectory": "ui/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://RAILWAY_URL/api/:path*" }
+  ]
+}

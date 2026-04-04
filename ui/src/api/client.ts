@@ -1,4 +1,11 @@
-const BASE = "/api";
+const BASE = import.meta.env.VITE_API_BASE || "/api";
+
+export function wsBaseUrl(): string {
+  const override = import.meta.env.VITE_WS_BASE;
+  if (override) return override as string;
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${protocol}://${window.location.host}`;
+}
 
 export class ApiError extends Error {
   status: number;

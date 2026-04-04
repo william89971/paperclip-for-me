@@ -23,6 +23,7 @@ import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { costService } from "./costs.js";
 import { secretService } from "./secrets.js";
+import { briefingService } from "./briefings.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
 import {
@@ -1525,6 +1526,18 @@ export function heartbeatService(db: Db) {
       worktreePath: executionWorkspace.worktreePath,
     };
     context.paperclipWorkspaces = resolvedWorkspace.workspaceHints;
+
+    // Inject company briefing into context (non-fatal)
+    try {
+      const briefingSvc = briefingService(db);
+      const latestBriefing = await briefingSvc.getLatest(agent.companyId);
+      if (latestBriefing) {
+        context.paperclipBriefing = latestBriefing.content;
+      }
+    } catch (briefingErr) {
+      logger.warn({ err: briefingErr, agentId: agent.id }, "Failed to inject briefing");
+    }
+
     const runtimeServiceIntents = (() => {
       const runtimeConfig = parseObject(resolvedConfig.workspaceRuntime);
       return Array.isArray(runtimeConfig.services)

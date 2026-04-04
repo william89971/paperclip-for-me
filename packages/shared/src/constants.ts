@@ -237,6 +237,15 @@ export type JoinRequestType = (typeof JOIN_REQUEST_TYPES)[number];
 export const JOIN_REQUEST_STATUSES = ["pending_approval", "approved", "rejected"] as const;
 export type JoinRequestStatus = (typeof JOIN_REQUEST_STATUSES)[number];
 
+export const WEBHOOK_TARGET_TYPES = ["create_issue", "wake_agent", "custom"] as const;
+export type WebhookTargetType = (typeof WEBHOOK_TARGET_TYPES)[number];
+
+export const WEBHOOK_EVENT_STATUSES = ["received", "processed", "failed"] as const;
+export type WebhookEventStatus = (typeof WEBHOOK_EVENT_STATUSES)[number];
+
+export const NOTIFICATION_CHANNEL_TYPES = ["webhook", "slack_webhook"] as const;
+export type NotificationChannelType = (typeof NOTIFICATION_CHANNEL_TYPES)[number];
+
 export const PERMISSION_KEYS = [
   "agents:create",
   "users:invite",

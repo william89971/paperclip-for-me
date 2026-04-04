@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Agent, Issue, LiveEvent } from "@paperclipai/shared";
 import { authApi } from "../api/auth";
+import { wsBaseUrl } from "../api/client";
 import { useCompany } from "./CompanyContext";
 import type { ToastInput } from "./ToastContext";
 import { useToast } from "./ToastContext";
@@ -542,8 +543,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(selectedCompanyId)}/events/ws`;
+      const url = `${wsBaseUrl()}/api/companies/${encodeURIComponent(selectedCompanyId)}/events/ws`;
       socket = new WebSocket(url);
 
       socket.onopen = () => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LiveEvent } from "@paperclipai/shared";
 import { heartbeatsApi, type LiveRunForIssue } from "../../api/heartbeats";
+import { wsBaseUrl } from "../../api/client";
 import { buildTranscript, getUIAdapter, type RunLogChunk, type TranscriptEntry } from "../../adapters";
 
 const LOG_POLL_INTERVAL_MS = 2000;
@@ -178,8 +179,7 @@ export function useLiveRunTranscripts({
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(companyId)}/events/ws`;
+      const url = `${wsBaseUrl()}/api/companies/${encodeURIComponent(companyId)}/events/ws`;
       socket = new WebSocket(url);
 
       socket.onmessage = (message) => {

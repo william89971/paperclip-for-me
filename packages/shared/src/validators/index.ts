@@ -137,3 +137,45 @@ export {
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
 } from "./access.js";
+
+export {
+  createScheduleSchema,
+  updateScheduleSchema,
+  type CreateSchedule,
+  type UpdateSchedule,
+} from "./schedule.js";
+
+export {
+  sendMessageSchema,
+  type SendMessage,
+} from "./message.js";
+
+export {
+  createWebhookEndpointSchema,
+  updateWebhookEndpointSchema,
+  type CreateWebhookEndpoint,
+  type UpdateWebhookEndpoint,
+} from "./webhook.js";
+
+export {
+  generateBriefingSchema,
+  type GenerateBriefing,
+} from "./briefing.js";
+
+export {
+  createKnowledgeEntrySchema,
+  updateKnowledgeEntrySchema,
+  type CreateKnowledgeEntry,
+  type UpdateKnowledgeEntry,
+} from "./knowledge.js";
+
+export {
+  createNotificationChannelSchema,
+  updateNotificationChannelSchema,
+  type CreateNotificationChannel,
+  type UpdateNotificationChannel,
+  createNotificationRuleSchema,
+  updateNotificationRuleSchema,
+  type CreateNotificationRule,
+  type UpdateNotificationRule,
+} from "./notification.js";
