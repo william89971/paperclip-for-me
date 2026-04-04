@@ -673,18 +673,26 @@ export async function startServer(): Promise<StartedServer> {
     });
   });
   
-  if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
+  {
     const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
-      logger.info({ signal }, "Stopping embedded PostgreSQL");
+      logger.info({ signal }, "Shutting down gracefully");
       try {
-        await embeddedPostgres?.stop();
+        await new Promise<void>((resolve, reject) => {
+          server.close((err) => err ? reject(err) : resolve());
+        });
       } catch (err) {
-        logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
-      } finally {
-        process.exit(0);
+        logger.error({ err }, "Failed to close HTTP server cleanly");
       }
+      if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
+        try {
+          await embeddedPostgres.stop();
+        } catch (err) {
+          logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
+        }
+      }
+      process.exit(0);
     };
-  
+
     process.once("SIGINT", () => {
       void shutdown("SIGINT");
     });

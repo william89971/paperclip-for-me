@@ -26,6 +26,14 @@ export function healthRoutes(
       return;
     }
 
+    // Verify actual database connectivity
+    try {
+      await db.execute(sql`SELECT 1`);
+    } catch {
+      res.status(503).json({ status: "error", error: "Database connection failed" });
+      return;
+    }
+
     let bootstrapStatus: "ready" | "bootstrap_pending" = "ready";
     let bootstrapInviteActive = false;
     if (opts.deploymentMode === "authenticated") {

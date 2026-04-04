@@ -1,4 +1,5 @@
 import express, { Router, type Request as ExpressRequest } from "express";
+import rateLimit from "express-rate-limit";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -113,6 +114,12 @@ export async function createApp(
     app.all("/api/auth/*authPath", opts.betterAuthHandler);
   }
   app.use(llmRoutes(db));
+
+  // Rate limiting
+  if (opts.deploymentMode === "authenticated") {
+    app.use("/api", rateLimit({ windowMs: 60_000, max: 200, standardHeaders: true, legacyHeaders: false }));
+    app.use("/api/webhooks", rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false }));
+  }
 
   // Mount public webhook ingestion (no auth — HMAC validated)
   app.use("/api/webhooks", webhookPublicRoutes(db));

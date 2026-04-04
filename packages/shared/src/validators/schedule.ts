@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CronExpressionParser } from "cron-parser";
 
 const metadataSizeLimit = z.record(z.unknown()).optional().nullable().refine(
   (val) => !val || JSON.stringify(val).length <= 10_000,
@@ -7,9 +8,13 @@ const metadataSizeLimit = z.record(z.unknown()).optional().nullable().refine(
 
 export const createScheduleSchema = z.object({
   cronExpression: z.string().min(1).max(100).refine((val) => {
-    const parts = val.trim().split(/\s+/);
-    return parts.length >= 5 && parts.length <= 6;
-  }, { message: "Invalid cron expression format (expected 5 or 6 fields)" }),
+    try {
+      CronExpressionParser.parse(val.trim());
+      return true;
+    } catch {
+      return false;
+    }
+  }, { message: "Invalid cron expression" }),
   timezone: z.string().max(100).refine((tz) => {
     try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return true; } catch { return false; }
   }, { message: "Invalid timezone" }).optional().default("UTC"),
