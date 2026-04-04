@@ -160,6 +160,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   const [workspaceMode, setWorkspaceMode] = useState<"local" | "repo" | null>(null);
   const [workspaceCwd, setWorkspaceCwd] = useState("");
   const [workspaceRepoUrl, setWorkspaceRepoUrl] = useState("");
+  const [workspaceRepoRef, setWorkspaceRepoRef] = useState("main");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
   const commitField = (field: ProjectConfigFieldKey, data: Record<string, unknown>) => {
@@ -324,6 +325,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       name: deriveWorkspaceNameFromRepo(repoUrl),
       cwd: REPO_ONLY_CWD_SENTINEL,
       repoUrl,
+      repoRef: workspaceRepoRef.trim() || "main",
     });
   };
 
@@ -534,16 +536,23 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   ) : null}
                   {workspace.repoUrl ? (
                     <div className="flex items-center justify-between gap-2 py-1">
-                      <a
-                        href={workspace.repoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
-                      >
-                        <Github className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{formatGitHubRepo(workspace.repoUrl)}</span>
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
+                      <div className="inline-flex min-w-0 items-center gap-1.5">
+                        <a
+                          href={workspace.repoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          <Github className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{formatGitHubRepo(workspace.repoUrl)}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                        {workspace.repoRef && (
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                            {workspace.repoRef}
+                          </span>
+                        )}
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon-xs"
@@ -665,12 +674,24 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           )}
           {workspaceMode === "repo" && (
             <div className="space-y-1.5 rounded-md border border-border p-2">
-              <input
-                className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
-                value={workspaceRepoUrl}
-                onChange={(e) => setWorkspaceRepoUrl(e.target.value)}
-                placeholder="https://github.com/org/repo"
-              />
+              <div>
+                <label className="text-[10px] text-muted-foreground mb-0.5 block">Repository URL</label>
+                <input
+                  className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
+                  value={workspaceRepoUrl}
+                  onChange={(e) => setWorkspaceRepoUrl(e.target.value)}
+                  placeholder="https://github.com/org/repo"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground mb-0.5 block">Branch</label>
+                <input
+                  className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs font-mono outline-none"
+                  value={workspaceRepoRef}
+                  onChange={(e) => setWorkspaceRepoRef(e.target.value)}
+                  placeholder="main"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -688,6 +709,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   onClick={() => {
                     setWorkspaceMode(null);
                     setWorkspaceRepoUrl("");
+                    setWorkspaceRepoRef("main");
                     setWorkspaceError(null);
                   }}
                 >
