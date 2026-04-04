@@ -840,7 +840,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 {executionWorkspaceAdvancedOpen && (
                   <div className="space-y-3">
                     <div className="text-xs text-muted-foreground">
-                      Host-managed implementation: <span className="text-foreground">Git worktree</span>
+                      Host-managed implementation: <span className="text-foreground">Isolated branch</span>
                     </div>
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
@@ -893,7 +893,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Worktree parent dir</span>
+                          <span>Branch checkout directory</span>
                           <SaveIndicator state={fieldState("execution_workspace_worktree_parent_dir")} />
                         </label>
                       </div>

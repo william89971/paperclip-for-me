@@ -34,7 +34,7 @@ export function InstanceSettings() {
   useEffect(() => {
     setBreadcrumbs([
       { label: "Instance Settings" },
-      { label: "Heartbeats" },
+      { label: "Schedules" },
     ]);
   }, [setBreadcrumbs]);
 
@@ -73,7 +73,7 @@ export function InstanceSettings() {
       ]);
     },
     onError: (error) => {
-      setActionError(error instanceof Error ? error.message : "Failed to update heartbeat.");
+      setActionError(error instanceof Error ? error.message : "Failed to update schedule.");
     },
   });
 
@@ -95,7 +95,7 @@ export function InstanceSettings() {
   }, [agents]);
 
   if (heartbeatsQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading scheduler heartbeats...</div>;
+    return <div className="text-sm text-muted-foreground">Loading agent schedules...</div>;
   }
 
   if (heartbeatsQuery.error) {
@@ -103,7 +103,7 @@ export function InstanceSettings() {
       <div className="text-sm text-destructive">
         {heartbeatsQuery.error instanceof Error
           ? heartbeatsQuery.error.message
-          : "Failed to load scheduler heartbeats."}
+          : "Failed to load agent schedules."}
       </div>
     );
   }
@@ -113,10 +113,10 @@ export function InstanceSettings() {
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Settings className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Scheduler Heartbeats</h1>
+          <h1 className="text-lg font-semibold">Agent Schedules</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Agents with a timer heartbeat enabled across all of your companies.
+          Agents with automatic scheduling enabled across all of your companies.
         </p>
       </div>
 
@@ -135,7 +135,7 @@ export function InstanceSettings() {
       {agents.length === 0 ? (
         <EmptyState
           icon={Clock3}
-          message="No scheduler heartbeats match the current criteria."
+          message="No scheduled agents match the current criteria."
         />
       ) : (
         <div className="space-y-4">
@@ -194,7 +194,7 @@ export function InstanceSettings() {
                             disabled={saving}
                             onClick={() => toggleMutation.mutate(agent)}
                           >
-                            {saving ? "..." : agent.heartbeatEnabled ? "Disable Timer Heartbeat" : "Enable Timer Heartbeat"}
+                            {saving ? "..." : agent.heartbeatEnabled ? "Disable Schedule" : "Enable Schedule"}
                           </Button>
                         </span>
                       </div>
