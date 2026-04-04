@@ -65,13 +65,13 @@ type AdapterType =
   | "http"
   | "openclaw_gateway";
 
-const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO. Use the ceo persona found here: 
+const DEFAULT_TASK_DESCRIPTION = `Review the company mission and define the strategic roadmap.
 
-https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md
-
-Ensure you have a folder agents/ceo and then download this AGENTS.md, and sibling HEARTBEAT.md, SOUL.md, and TOOLS.md. and set that AGENTS.md as the path to your agents instruction file
-
-After that, hire yourself a Founding Engineer agent and then plan the roadmap and tasks for your new company.`;
+1. Introduce yourself as CEO and summarize your understanding of the company's mission and goals.
+2. Identify 3-5 top priorities for the company right now.
+3. For each priority, create a follow-up task with a clear description and assign it to yourself (or delegate once you hire more agents).
+4. Draft a short company roadmap (what to accomplish this week, this month, this quarter).
+5. Recommend what kind of agent to hire next (e.g. Founding Engineer, Marketing Lead) and why.`;
 
 export function OnboardingWizard() {
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
@@ -110,7 +110,7 @@ export function OnboardingWizard() {
   const [showMoreAdapters, setShowMoreAdapters] = useState(false);
 
   // Step 3
-  const [taskTitle, setTaskTitle] = useState("Create your CEO HEARTBEAT.md");
+  const [taskTitle, setTaskTitle] = useState("Plan the company roadmap and first priorities");
   const [taskDescription, setTaskDescription] = useState(
     DEFAULT_TASK_DESCRIPTION
   );
@@ -261,7 +261,7 @@ export function OnboardingWizard() {
     setAdapterEnvLoading(false);
     setForceUnsetAnthropicApiKey(false);
     setUnsetAnthropicLoading(false);
-    setTaskTitle("Create your CEO HEARTBEAT.md");
+    setTaskTitle("Plan the company roadmap and first priorities");
     setTaskDescription(DEFAULT_TASK_DESCRIPTION);
     setCreatedCompanyId(null);
     setCreatedCompanyPrefix(null);
@@ -615,7 +615,7 @@ export function OnboardingWizard() {
                     <div>
                       <h3 className="font-medium">Name your company</h3>
                       <p className="text-xs text-muted-foreground">
-                        This is the organization your agents will work for.
+                        This is the AI company that will work for you.
                       </p>
                     </div>
                   </div>
@@ -651,7 +651,7 @@ export function OnboardingWizard() {
                     </label>
                     <textarea
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[60px]"
-                      placeholder="What is this company trying to achieve?"
+                      placeholder="e.g. Build a SaaS product that helps small businesses manage inventory"
                       value={companyGoal}
                       onChange={(e) => setCompanyGoal(e.target.value)}
                     />
@@ -696,15 +696,15 @@ export function OnboardingWizard() {
                           value: "claude_local" as const,
                           label: "Claude Code",
                           icon: Sparkles,
-                          desc: "Local Claude agent",
+                          desc: "Uses your Claude Code CLI",
                           recommended: true
                         },
                         {
                           value: "codex_local" as const,
                           label: "Codex",
                           icon: Code,
-                          desc: "Local Codex agent",
-                          recommended: true
+                          desc: "Uses OpenAI's Codex CLI",
+                          recommended: false
                         }
                       ].map((opt) => (
                         <button
@@ -1138,8 +1138,8 @@ export function OnboardingWizard() {
                     <div>
                       <h3 className="font-medium">Give it something to do</h3>
                       <p className="text-xs text-muted-foreground">
-                        Give your agent a small task to start with — a bug fix,
-                        a research question, writing a script.
+                        Give your CEO its first assignment. Keep it high-level
+                        — the agent will break it down and create follow-up tasks.
                       </p>
                     </div>
                   </div>
