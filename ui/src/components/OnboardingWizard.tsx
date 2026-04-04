@@ -191,11 +191,22 @@ export function OnboardingWizard() {
       ? "opencode"
       : "claude");
 
+  // Reset env test when adapter config changes
   useEffect(() => {
     if (step !== 2) return;
     setAdapterEnvResult(null);
     setAdapterEnvError(null);
-  }, [step, adapterType, cwd, model, command, args, url]);
+  }, [adapterType, cwd, model, command, args, url]);
+
+  // Auto-run environment test when arriving at step 2 with a company created
+  useEffect(() => {
+    if (step !== 2 || !createdCompanyId || adapterEnvResult || adapterEnvLoading) return;
+    // Small delay so the UI renders first
+    const timer = setTimeout(() => {
+      runAdapterEnvironmentTest();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [step, createdCompanyId]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
   const hasAnthropicApiKeyOverrideCheck =
@@ -966,22 +977,28 @@ export function OnboardingWizard() {
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-medium">
-                            Adapter environment check
+                            {adapterEnvLoading ? "Checking your setup..." : "Environment check"}
                           </p>
                           <p className="text-[11px] text-muted-foreground">
-                            Runs a live probe that asks the adapter CLI to
-                            respond with hello.
+                            {adapterEnvLoading
+                              ? "Verifying that your CLI is installed and authenticated."
+                              : "Verifies your CLI is ready to run agents."}
                           </p>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2.5 text-xs"
-                          disabled={adapterEnvLoading}
-                          onClick={() => void runAdapterEnvironmentTest()}
-                        >
-                          {adapterEnvLoading ? "Testing..." : "Test now"}
-                        </Button>
+                        {!adapterEnvLoading && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2.5 text-xs"
+                            disabled={adapterEnvLoading}
+                            onClick={() => void runAdapterEnvironmentTest()}
+                          >
+                            {adapterEnvResult ? "Retest" : "Test now"}
+                          </Button>
+                        )}
+                        {adapterEnvLoading && (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
                       </div>
 
                       {adapterEnvError && (
