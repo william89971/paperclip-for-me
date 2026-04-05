@@ -9,7 +9,7 @@ import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, agentRouteRef, agentUrl } from "../lib/utils";
-import { AgentIcon } from "./AgentIconPicker";
+import { AgentAvatar } from "./AgentAvatar";
 import {
   Collapsible,
   CollapsibleContent,
@@ -122,7 +122,7 @@ export function SidebarAgents() {
                     : "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
                 )}
               >
-                <AgentIcon icon={agent.icon} className="shrink-0 h-3.5 w-3.5 text-muted-foreground" />
+                <AgentAvatar name={agent.name} agentId={agent.id} size="xs" />
                 <span className="flex-1 truncate">{agent.name}</span>
                 {runCount > 0 && (
                   <span className="ml-auto flex items-center gap-1.5 shrink-0">

@@ -56,7 +56,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
+import { AgentIconPicker } from "../components/AgentIconPicker";
+import { AgentAvatar } from "../components/AgentAvatar";
 import { RunTranscriptView, type TranscriptMode } from "../components/transcript/RunTranscriptView";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
 import { redactHomePathUserSegments, redactHomePathUserSegmentsInValue } from "@paperclipai/adapter-utils";
@@ -450,14 +451,7 @@ export function AgentDetail() {
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <AgentIconPicker
-            value={agent.icon}
-            onChange={(icon) => updateIcon.mutate(icon)}
-          >
-            <button className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent hover:bg-accent/80 transition-colors">
-              <AgentIcon icon={agent.icon} className="h-6 w-6" />
-            </button>
-          </AgentIconPicker>
+          <AgentAvatar name={agent.name} agentId={agent.id} size="lg" className="w-12 h-12 text-base" />
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate">{agent.name}</h2>
             <p className="text-sm text-muted-foreground truncate">
