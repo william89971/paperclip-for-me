@@ -1,12 +1,11 @@
-import { useMemo, useEffect, useState, useCallback } from "react";
+import { useMemo, useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "@/lib/router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
 import { issuesApi } from "../api/issues";
 import { messagesApi } from "../api/messages";
-import type { TranscriptEntry } from "../adapters";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -15,78 +14,21 @@ import { RunTranscriptView } from "../components/transcript/RunTranscriptView";
 import { useLiveRunTranscripts } from "../components/transcript/useLiveRunTranscripts";
 import { AgentAvatar } from "../components/AgentAvatar";
 import { EmptyState } from "../components/EmptyState";
-import { ExternalLink, Radio, MessageSquare, Send, Loader2 } from "lucide-react";
+import { Radio, Send, Loader2, Terminal, ChevronRight } from "lucide-react";
 
 function isRunActive(run: LiveRunForIssue): boolean {
   return run.status === "queued" || run.status === "running";
 }
 
-/** Chat input for sending directions to an agent via issue comments or new tasks */
-function AgentChatInput({
-  agent,
-  currentIssueId,
-  companyId,
-}: {
-  agent: Agent;
-  currentIssueId?: string;
-  companyId: string;
-}) {
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const queryClient = useQueryClient();
-
-  const send = useCallback(async () => {
-    const body = text.trim();
-    if (!body || sending) return;
-    setSending(true);
-    try {
-      if (currentIssueId) {
-        // Post comment on the agent's current issue — this triggers wakeup
-        await issuesApi.addComment(currentIssueId, body, false, true);
-      } else {
-        // No current issue — create a new task assigned to this agent
-        await issuesApi.create(companyId, {
-          title: body.length > 80 ? body.slice(0, 77) + "..." : body,
-          description: body,
-          assigneeId: agent.id,
-          status: "todo",
-        });
-      }
-      setText("");
-      // Refresh data
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(companyId) });
-    } finally {
-      setSending(false);
-    }
-  }, [text, sending, currentIssueId, companyId, agent.id, queryClient]);
-
-  return (
-    <div className="border-t border-border/60 px-3 py-2">
-      <div className="flex items-center gap-2">
-        <input
-          className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
-          placeholder={currentIssueId ? `Message ${agent.name}...` : `New task for ${agent.name}...`}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
-          disabled={sending}
-        />
-        <button
-          onClick={() => void send()}
-          disabled={!text.trim() || sending}
-          className="shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors disabled:opacity-30"
-        >
-          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function LiveMonitor() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const queryClient = useQueryClient();
+  const terminalEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Live Monitor" }]);
@@ -119,6 +61,9 @@ export function LiveMonitor() {
   });
 
   const runs = liveRuns ?? [];
+  const visibleAgents = useMemo(() => {
+    return (agents ?? []).filter((a) => a.status !== "terminated");
+  }, [agents]);
 
   const agentById = useMemo(() => {
     const map = new Map<string, Agent>();
@@ -135,10 +80,9 @@ export function LiveMonitor() {
   const { transcriptByRun, hasOutputForRun } = useLiveRunTranscripts({
     runs,
     companyId: selectedCompanyId!,
-    maxChunksPerRun: 200,
+    maxChunksPerRun: 300,
   });
 
-  // Group runs by agent
   const runsByAgent = useMemo(() => {
     const map = new Map<string, LiveRunForIssue[]>();
     for (const run of runs) {
@@ -149,11 +93,6 @@ export function LiveMonitor() {
     return map;
   }, [runs]);
 
-  // Recent messages (last 20)
-  const recentMessages = useMemo(() => {
-    return (messages ?? []).slice(0, 20);
-  }, [messages]);
-
   const activeAgentIds = useMemo(() => {
     const ids = new Set<string>();
     for (const run of runs) {
@@ -162,204 +101,238 @@ export function LiveMonitor() {
     return ids;
   }, [runs]);
 
-  // All agents with runs or active status
-  const monitoredAgents = useMemo(() => {
-    const agentIds = new Set([...runsByAgent.keys()]);
-    // Also include agents that are active but may not have runs in this batch
-    for (const a of agents ?? []) {
-      if (a.status === "active" || a.status === "running") agentIds.add(a.id);
+  // Auto-select first agent
+  useEffect(() => {
+    if (!selectedAgentId && visibleAgents.length > 0) {
+      setSelectedAgentId(visibleAgents[0]!.id);
     }
-    return [...agentIds].map((id) => agentById.get(id)).filter(Boolean) as Agent[];
-  }, [runsByAgent, agents, agentById]);
+  }, [selectedAgentId, visibleAgents]);
+
+  // Auto-scroll terminal
+  useEffect(() => {
+    terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [transcriptByRun, selectedAgentId]);
+
+  const selectedAgent = selectedAgentId ? agentById.get(selectedAgentId) : null;
+  const selectedRuns = selectedAgentId ? (runsByAgent.get(selectedAgentId) ?? []) : [];
+  const latestRun = selectedRuns[0];
+  const active = selectedAgentId ? activeAgentIds.has(selectedAgentId) : false;
+  const issue = latestRun?.issueId ? issueById.get(latestRun.issueId) : undefined;
+  const transcript = latestRun ? (transcriptByRun.get(latestRun.id) ?? []) : [];
+  const hasOutput = latestRun ? hasOutputForRun(latestRun.id) : false;
+
+  // Agent messages for selected agent
+  const agentMessages = useMemo(() => {
+    if (!selectedAgentId) return [];
+    return (messages ?? []).filter(
+      (m) => m.fromAgentId === selectedAgentId || m.toAgentId === selectedAgentId
+    );
+  }, [messages, selectedAgentId]);
+
+  const send = useCallback(async () => {
+    const body = text.trim();
+    if (!body || sending || !selectedAgent) return;
+    setSending(true);
+    try {
+      if (latestRun?.issueId) {
+        await issuesApi.addComment(latestRun.issueId, body, false, true);
+      } else {
+        await issuesApi.create(selectedCompanyId!, {
+          title: body.length > 80 ? body.slice(0, 77) + "..." : body,
+          description: body,
+          assigneeId: selectedAgent.id,
+          status: "todo",
+        });
+      }
+      setText("");
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(selectedCompanyId!) });
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
+    }
+  }, [text, sending, selectedAgent, latestRun, selectedCompanyId, queryClient]);
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Radio} message="Select a company to view live agent activity." />;
   }
 
-  if (monitoredAgents.length === 0) {
-    return (
-      <EmptyState
-        icon={Radio}
-        message="No agents are active right now. Assign a task and agents will start working."
-      />
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Radio className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Live Monitor</h1>
-          <span className="rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-xs font-medium text-cyan-700 dark:text-cyan-300">
-            {activeAgentIds.size} active
-          </span>
+    <div className="flex h-[calc(100vh-6rem)] rounded-xl border border-border overflow-hidden shadow-md">
+      {/* ── Left sidebar: agent channels ── */}
+      <div className="w-60 shrink-0 border-r border-border bg-[#1a1a2e] dark:bg-[#0f0f1a] flex flex-col">
+        {/* Workspace header */}
+        <div className="px-4 py-3 border-b border-white/10">
+          <h2 className="text-sm font-bold text-white">Live Monitor</h2>
+          <p className="text-[10px] text-white/40 mt-0.5">
+            {activeAgentIds.size} agent{activeAgentIds.size !== 1 ? "s" : ""} working
+          </p>
+        </div>
+
+        {/* Agent list */}
+        <div className="flex-1 overflow-y-auto py-2">
+          <div className="px-3 mb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30">
+              Agents
+            </span>
+          </div>
+          {visibleAgents.map((agent) => {
+            const isActive = activeAgentIds.has(agent.id);
+            const isSelected = selectedAgentId === agent.id;
+            return (
+              <button
+                key={agent.id}
+                onClick={() => { setSelectedAgentId(agent.id); inputRef.current?.focus(); }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors",
+                  isSelected
+                    ? "bg-white/10 text-white"
+                    : "text-white/60 hover:bg-white/5 hover:text-white/80",
+                )}
+              >
+                <AgentAvatar name={agent.name} agentId={agent.id} size="xs" />
+                <span className="flex-1 text-[13px] font-medium truncate">{agent.name}</span>
+                {isActive && (
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Messages section */}
+          {agentMessages.length > 0 && (
+            <>
+              <div className="px-3 mt-4 mb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30">
+                  Messages
+                </span>
+              </div>
+              {agentMessages.slice(0, 8).map((msg) => {
+                const from = agentById.get(msg.fromAgentId);
+                const to = agentById.get(msg.toAgentId);
+                return (
+                  <div key={msg.id} className="px-3 py-1.5">
+                    <div className="text-[10px] text-white/40">
+                      <span className="text-white/60 font-medium">{from?.name ?? "?"}</span>
+                      {" → "}
+                      <span className="text-white/60 font-medium">{to?.name ?? "?"}</span>
+                    </div>
+                    <p className="text-[11px] text-white/50 truncate">{msg.body}</p>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Agent columns */}
-      <div className={cn(
-        "grid gap-4",
-        monitoredAgents.length === 1 && "grid-cols-1",
-        monitoredAgents.length === 2 && "grid-cols-1 lg:grid-cols-2",
-        monitoredAgents.length >= 3 && "grid-cols-1 md:grid-cols-2 xl:grid-cols-3",
-      )}>
-        {monitoredAgents.map((agent) => {
-          const agentRuns = runsByAgent.get(agent.id) ?? [];
-          const latestRun = agentRuns[0];
-          const active = activeAgentIds.has(agent.id);
-          const issue = latestRun?.issueId ? issueById.get(latestRun.issueId) : undefined;
-          const transcript = latestRun ? (transcriptByRun.get(latestRun.id) ?? []) : [];
-          const hasOutput = latestRun ? hasOutputForRun(latestRun.id) : false;
-
-          return (
-            <div
-              key={agent.id}
-              className={cn(
-                "flex flex-col rounded-xl border overflow-hidden transition-shadow",
-                active
-                  ? "border-cyan-500/30 shadow-[0_4px_24px_rgba(6,182,212,0.1)]"
-                  : "border-border shadow-sm",
-              )}
-            >
-              {/* Agent header */}
-              <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
-                <div className="relative">
-                  <AgentAvatar name={agent.name} agentId={agent.id} size="md" />
-                  {active && (
-                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-70" />
-                      <span className="relative inline-flex h-3 w-3 rounded-full bg-cyan-500 border-2 border-card" />
-                    </span>
-                  )}
+      {/* ── Main terminal area ── */}
+      <div className="flex-1 flex flex-col bg-[#0d1117] dark:bg-[#0a0a0f]">
+        {selectedAgent ? (
+          <>
+            {/* Channel header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-[#161b22] dark:bg-[#111118]">
+              <AgentAvatar name={selectedAgent.name} agentId={selectedAgent.id} size="md" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white">{selectedAgent.name}</span>
+                  <span className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    active
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-white/10 text-white/40",
+                  )}>
+                    {active ? "Working" : selectedAgent.status}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`/agents/${agent.id}`}
-                      className="text-sm font-semibold hover:underline truncate"
-                    >
-                      {agent.name}
-                    </Link>
-                    <span className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                      active
-                        ? "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
-                        : "bg-muted text-muted-foreground",
-                    )}>
-                      {active ? "Working" : agent.status}
-                    </span>
-                  </div>
-                  {issue && (
-                    <Link
-                      to={`/issues/${issue.identifier ?? latestRun!.issueId}`}
-                      className="text-xs text-muted-foreground hover:text-foreground hover:underline truncate block mt-0.5"
-                    >
-                      {issue.identifier} — {issue.title}
-                    </Link>
-                  )}
-                </div>
-                {latestRun && (
+                {issue && (
                   <Link
-                    to={`/agents/${agent.id}/runs/${latestRun.id}`}
-                    className="shrink-0 rounded-full border border-border/70 bg-background/70 p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-                    title="View full run"
+                    to={`/issues/${issue.identifier ?? latestRun!.issueId}`}
+                    className="text-xs text-white/40 hover:text-white/60 hover:underline truncate block"
                   >
-                    <ExternalLink className="h-3 w-3" />
+                    {issue.identifier} — {issue.title}
                   </Link>
                 )}
               </div>
-
-              {/* Live transcript */}
-              <div className="flex-1 min-h-[200px] max-h-[400px] overflow-y-auto p-3 bg-muted/20">
-                {latestRun ? (
-                  <RunTranscriptView
-                    entries={transcript}
-                    density="compact"
-                    limit={10}
-                    streaming={active}
-                    collapseStdout
-                    thinkingClassName="!text-[10px] !leading-4"
-                    emptyMessage={
-                      hasOutput
-                        ? "Waiting for transcript parsing..."
-                        : active
-                          ? "Waiting for output..."
-                          : "No transcript captured."
-                    }
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground py-4 text-center">
-                    Idle — no recent runs
-                  </p>
-                )}
-              </div>
-
-              {/* Run time */}
-              <div className="border-t border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
-                {latestRun
-                  ? active
+              {latestRun && (
+                <div className="text-[10px] text-white/30 shrink-0">
+                  {active
                     ? `Running since ${relativeTime(latestRun.createdAt)}`
                     : latestRun.finishedAt
                       ? `Finished ${relativeTime(latestRun.finishedAt)}`
-                      : `Started ${relativeTime(latestRun.createdAt)}`
-                  : "No recent activity"}
-              </div>
-
-              {/* Chat input */}
-              <AgentChatInput
-                agent={agent}
-                currentIssueId={latestRun?.issueId ?? undefined}
-                companyId={selectedCompanyId!}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Recent messages between agents */}
-      {recentMessages.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Agent Messages
-            </h2>
-          </div>
-          <div className="rounded-xl border border-border divide-y divide-border/60">
-            {recentMessages.map((msg) => {
-              const from = agentById.get(msg.fromAgentId);
-              const to = agentById.get(msg.toAgentId);
-              return (
-                <div key={msg.id} className="flex items-start gap-3 px-4 py-3">
-                  <AgentAvatar
-                    name={from?.name ?? "Unknown"}
-                    agentId={msg.fromAgentId}
-                    size="sm"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="font-medium">{from?.name ?? "Unknown"}</span>
-                      <span className="text-muted-foreground">→</span>
-                      <span className="font-medium">{to?.name ?? "Unknown"}</span>
-                      <span className="ml-auto text-muted-foreground shrink-0">
-                        {relativeTime(msg.createdAt)}
-                      </span>
-                    </div>
-                    {msg.subject && (
-                      <p className="text-xs font-medium mt-0.5">{msg.subject}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {msg.body}
-                    </p>
-                  </div>
+                      : `Started ${relativeTime(latestRun.createdAt)}`}
                 </div>
-              );
-            })}
+              )}
+            </div>
+
+            {/* Terminal output */}
+            <div className="flex-1 overflow-y-auto p-4 font-mono text-sm">
+              {latestRun ? (
+                <div className="[&_*]:!font-mono [&_.prose]:!text-green-400 [&_.prose_p]:!text-green-400 [&_.prose_li]:!text-green-400 [&_.prose_code]:!text-cyan-400 [&_.prose_strong]:!text-white [&_.prose_h1]:!text-white [&_.prose_h2]:!text-white [&_.prose_h3]:!text-white [&_.prose_a]:!text-cyan-400">
+                  <RunTranscriptView
+                    entries={transcript}
+                    density="comfortable"
+                    limit={50}
+                    streaming={active}
+                    collapseStdout={false}
+                    className="[&>div]:!border-white/5"
+                    emptyMessage={
+                      hasOutput
+                        ? "Parsing output..."
+                        : active
+                          ? "$ waiting for output..."
+                          : "No output captured."
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="text-green-500/60 py-8">
+                  <p>$ agent idle — no active runs</p>
+                  <p className="mt-1">$ type a message below to give {selectedAgent.name} a task</p>
+                  <span className="inline-block w-2 h-4 bg-green-500/60 animate-pulse mt-1" />
+                </div>
+              )}
+              <div ref={terminalEndRef} />
+            </div>
+
+            {/* Chat input bar */}
+            <div className="border-t border-white/10 bg-[#161b22] dark:bg-[#111118] px-4 py-3">
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#0d1117] dark:bg-[#0a0a0f] px-3 py-2">
+                <ChevronRight className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                <input
+                  ref={inputRef}
+                  className="flex-1 bg-transparent text-sm text-white font-mono outline-none placeholder:text-white/25"
+                  placeholder={latestRun?.issueId ? `Message ${selectedAgent.name}...` : `New task for ${selectedAgent.name}...`}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
+                  disabled={sending}
+                />
+                <button
+                  onClick={() => void send()}
+                  disabled={!text.trim() || sending}
+                  className="shrink-0 rounded p-1 text-white/30 hover:text-green-400 transition-colors disabled:opacity-20"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-white/20 mt-1.5 px-1">
+                {latestRun?.issueId ? "Posts a comment on the current task — agent wakes up to read it" : "Creates a new task and assigns it to this agent"}
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-white/30">
+              <Terminal className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Select an agent to view their terminal</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
