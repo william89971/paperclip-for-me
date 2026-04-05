@@ -9,6 +9,7 @@ import {
   SquarePen,
   Network,
   Settings,
+  Radio,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -72,6 +73,7 @@ export function Sidebar() {
             <span className="truncate">New Issue</span>
           </button>
           <SidebarNavItem to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
+          <SidebarNavItem to="/monitor" label="Live Monitor" icon={Radio} />
           <SidebarNavItem
             to="/inbox"
             label="Inbox"
