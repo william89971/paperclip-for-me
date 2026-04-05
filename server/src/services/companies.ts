@@ -7,6 +7,8 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  agentMessages,
+  agentSchedules,
   issues,
   issueComments,
   projects,
@@ -18,10 +20,16 @@ import {
   approvals,
   activityLog,
   companySecrets,
+  companyBriefings,
   joinRequests,
   invites,
   principalPermissionGrants,
   companyMemberships,
+  knowledgeEntries,
+  notificationRules,
+  notificationChannels,
+  webhookEvents,
+  webhookEndpoints,
 } from "@paperclipai/db";
 
 export function companyService(db: Db) {
@@ -100,6 +108,14 @@ export function companyService(db: Db) {
     remove: (id: string) =>
       db.transaction(async (tx) => {
         // Delete from child tables in dependency order
+        await tx.delete(webhookEvents).where(eq(webhookEvents.companyId, id));
+        await tx.delete(webhookEndpoints).where(eq(webhookEndpoints.companyId, id));
+        await tx.delete(notificationRules).where(eq(notificationRules.companyId, id));
+        await tx.delete(notificationChannels).where(eq(notificationChannels.companyId, id));
+        await tx.delete(knowledgeEntries).where(eq(knowledgeEntries.companyId, id));
+        await tx.delete(companyBriefings).where(eq(companyBriefings.companyId, id));
+        await tx.delete(agentMessages).where(eq(agentMessages.companyId, id));
+        await tx.delete(agentSchedules).where(eq(agentSchedules.companyId, id));
         await tx.delete(heartbeatRunEvents).where(eq(heartbeatRunEvents.companyId, id));
         await tx.delete(agentTaskSessions).where(eq(agentTaskSessions.companyId, id));
         await tx.delete(heartbeatRuns).where(eq(heartbeatRuns.companyId, id));
