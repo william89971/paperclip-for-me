@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import { Link } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
@@ -15,11 +15,73 @@ import { RunTranscriptView } from "../components/transcript/RunTranscriptView";
 import { useLiveRunTranscripts } from "../components/transcript/useLiveRunTranscripts";
 import { AgentAvatar } from "../components/AgentAvatar";
 import { EmptyState } from "../components/EmptyState";
-import { ExternalLink, Radio, MessageSquare } from "lucide-react";
-import { useEffect } from "react";
+import { ExternalLink, Radio, MessageSquare, Send, Loader2 } from "lucide-react";
 
 function isRunActive(run: LiveRunForIssue): boolean {
   return run.status === "queued" || run.status === "running";
+}
+
+/** Chat input for sending directions to an agent via issue comments or new tasks */
+function AgentChatInput({
+  agent,
+  currentIssueId,
+  companyId,
+}: {
+  agent: Agent;
+  currentIssueId?: string;
+  companyId: string;
+}) {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const queryClient = useQueryClient();
+
+  const send = useCallback(async () => {
+    const body = text.trim();
+    if (!body || sending) return;
+    setSending(true);
+    try {
+      if (currentIssueId) {
+        // Post comment on the agent's current issue — this triggers wakeup
+        await issuesApi.addComment(currentIssueId, body, false, true);
+      } else {
+        // No current issue — create a new task assigned to this agent
+        await issuesApi.create(companyId, {
+          title: body.length > 80 ? body.slice(0, 77) + "..." : body,
+          description: body,
+          assigneeId: agent.id,
+          status: "todo",
+        });
+      }
+      setText("");
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(companyId) });
+    } finally {
+      setSending(false);
+    }
+  }, [text, sending, currentIssueId, companyId, agent.id, queryClient]);
+
+  return (
+    <div className="border-t border-border/60 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <input
+          className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
+          placeholder={currentIssueId ? `Message ${agent.name}...` : `New task for ${agent.name}...`}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
+          disabled={sending}
+        />
+        <button
+          onClick={() => void send()}
+          disabled={!text.trim() || sending}
+          className="shrink-0 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors disabled:opacity-30"
+        >
+          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function LiveMonitor() {
@@ -244,6 +306,13 @@ export function LiveMonitor() {
                       : `Started ${relativeTime(latestRun.createdAt)}`
                   : "No recent activity"}
               </div>
+
+              {/* Chat input */}
+              <AgentChatInput
+                agent={agent}
+                currentIssueId={latestRun?.issueId ?? undefined}
+                companyId={selectedCompanyId!}
+              />
             </div>
           );
         })}
