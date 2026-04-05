@@ -134,6 +134,20 @@ export function CompanySettings() {
     setSnippetCopied(false);
     setSnippetCopyDelightId(0);
   }, [selectedCompanyId]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteMutation = useMutation({
+    mutationFn: (companyId: string) => companiesApi.remove(companyId),
+    onSuccess: async () => {
+      const nextCompanyId = companies.find(
+        (c) => c.id !== selectedCompanyId && c.status !== "archived"
+      )?.id ?? null;
+      if (nextCompanyId) setSelectedCompanyId(nextCompanyId);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companies.stats });
+      setConfirmDelete(false);
+    },
+  });
+
   const archiveMutation = useMutation({
     mutationFn: ({
       companyId,
@@ -426,6 +440,52 @@ export function CompanySettings() {
                 {archiveMutation.error instanceof Error
                   ? archiveMutation.error.message
                   : "Failed to archive company"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Permanently delete this company and all its agents, tasks, and data.
+            This cannot be undone.
+          </p>
+          <div className="flex items-center gap-2">
+            {!confirmDelete ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setConfirmDelete(true)}
+              >
+                Delete company
+              </Button>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => {
+                    if (!selectedCompanyId) return;
+                    deleteMutation.mutate(selectedCompanyId);
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Yes, delete permanently"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
+            {deleteMutation.isError && (
+              <span className="text-xs text-destructive">
+                {deleteMutation.error instanceof Error
+                  ? deleteMutation.error.message
+                  : "Failed to delete company"}
               </span>
             )}
           </div>
